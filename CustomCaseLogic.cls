@@ -1,4 +1,10 @@
+/*
+	jjackson 32019-- made change for FSL project to pull field work order timesheet start/end dates into
+	the case interaction history.  The Timesheet/TimesheetEntry ojects will be replacing the Field Service
+	Digest object.
+*/
 // *********************************************************************************************
+//
 // Filename:     CustomCaseLogic
 // Version:      0.0.1
 // Author:       Etherios
