@@ -1012,6 +1012,93 @@ global class CustomCaseLogic {
     										
 		return historyList;    										
     }
+
+		//add methods for finding timesheetentry records from field work orders to replace field service digest
+		//jjackson FSL project 3/2019
+		global static List<CaseInteractionHistory> GetFWOTimeSheetEntries(Id caseId) {
+    	
+    	// Check for case Id passed
+    	if (caseId == null) { return null; }
+    	
+    	return GetFWOTimeSheetEntries(new List<Id> { caseId });
+    	
+    }
+
+
+		global static List<CaseInteractionHistory> GetFWOTimeSheetEntries(List<Id> caseIdList) {
+    	
+    	return GetFWOTimeSheetEntries(caseIdList, DEFAULT_CASE_HISTORY_RECORD_LIMIT);
+    }
+    
+    /**
+     * Read field service digest for case
+     */
+    global static List<CaseInteractionHistory> GetFWOTimeSheetEntries(List<Id> caseIdList, Integer recordsToGet) {
+    	
+    	// Check for case Id passed
+    	if (caseIdList == null || caseIdList.isEmpty()) { return null; }
+
+			List<WorkOrder> lstfwo = New List<WorkOrder>();
+			lstfwo = [Select id, caseid, (select workorderid, workorderid.workordernumber,
+			          workorderid.caseid, starttime, endtime, status, type, createdDate, CreatedBy.Name,
+			          from timesheetentries) from
+			          WorkOrder where caseid in :caseIdList ];
+
+			system.debug('lstfwo size in GetFWOTimeSheetEntries is ' +lstfwo.size());
+
+			List<TimeSheetEntry> lsttimeentry = New List<TimeSheetEntry>();
+    	
+    	// Check for record limit
+    	if (recordsToGet == null) { recordsToGet = DEFAULT_CASE_HISTORY_RECORD_LIMIT; }
+    	else if (recordsToGet < 1) { return null; }
+    	else if (recordsToGet > MAX_CASE_HISTORY_RECORD_LIMIT) { recordsToGet = MAX_CASE_HISTORY_RECORD_LIMIT; }
+    	
+    	List<CaseInteractionHistory> historyList = new List<CaseInteractionHistory>();
+    	
+    	try {
+    		
+    		// Get object name
+    		String objectName = SObjectType.timesheetentry.getLabel();
+    		
+				if(lstfwo.size() > 0)
+				{
+						for(WorkOrder wo :lstfwo)
+						{
+								for(TimeSheetEntry te :wo.timesheetentry__r)
+								{
+									 lsttimeentry.add(te);
+								}
+						}
+				}
+
+				if(lsttimeentry.size() > 0)	
+				{
+					for(TimeSheetEntry record :lsttimeentry)
+					{
+    				CaseInteractionHistory history = new CaseInteractionHistory();
+    				history.objectId = record.workorderid.caseid;
+    				history.objectName = objectName;
+    				history.createdBy = record.CreatedBy.Name;
+    				history.setCreatedDate(record.CreatedDate);
+    				String header = 'Check-In Time: ' + (record.starttime == null ? 'n/a' : record.starttime.format());
+    				header += '\nCheck-Out Time: ' + (record.endtime == null ? 'n/a' : record.endtime.format());
+    				history.header = header;
+						history.details = record.workorderid.workordernumber;
+    				historyList.add(history);
+					}
+				}//end if lsttimeentry size > 0
+    		// Get timesheet entries related to field work orders linked to the case
+    		
+  		}//end try
+  			
+    	catch (Exception e) {
+    		System.debug('CustomCaseLogic.GetFWOTimeSheetEntries. Failed to read timesheetentries for case. Details: ' + e.getMessage());
+    	}
+
+			system.debug('***************END GetFWOTimeSheetEntries***************');
+    										
+		return historyList;    										
+    }
     
     /**
      * Read case field change history
